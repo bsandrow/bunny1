@@ -1,0 +1,10 @@
+#!/bin/sh
+
+BASEDIR=../src
+PREFIX=/usr/local
+INSTALLDIR=$PREFIX/lib/bunny1
+BINDIR=$PREFIX/bin
+
+mkdir -p "$INSTALLDIR"
+cp $BASEDIR/* $INSTALLDIR/
+cp bunny1_ctrl $BINDIR/

@@ -1,0 +1,83 @@
+#!/bin/bash
+
+LOGDIR=/var/log/bunny1/         # log directory
+LIBDIR=/usr/local/lib/bunny1    # install dir
+ACCESSLOG=$LOGDIR/access.log    # access log
+ERRORLOG=$LOGDIR/error.log      # error log
+PIDFILE=/var/run/bunny1.pid     # pidfile
+RUNNER=$LIBDIR/b1_example.py    # runner
+PORT=8080                       # port to listen on
+
+function exit_with_msg
+{
+    echo "$*" >&2
+    exit 1
+}
+
+function get_pid
+{
+    cat "$PIDFILE" | tr -d "\n"
+}
+function initialize_bunny1
+{
+    if [ ! -d "$LOGDIR" ]; then
+        mkdir -p "$LOGDIR"
+        [ $? -ne 0 ] && exit_with_msg "Cannot create log directory '$LOGDIR'"
+    fi
+    [ ! -d "$LIBDIR" ] && exit_with_msg "'$LIBDIR' does not exist"
+    [ ! -x "$RUNNER" ] && exit_with_msg "'$RUNNER' not executable"
+}
+
+function start_bunny1
+{
+    if [ -f $PIDFILE ]; then
+        PID=`get_pid`
+        [ -f /proc/$PID ] && exit_with_msg "Already running..."
+        echo "Removing stale pid file..."
+        rm "$PIDFILE"
+    fi
+    $RUNNER                         \
+        --daemonize                 \
+        --port=$PORT                \
+        --accesslogfile=$ACCESSLOG  \
+        --errorlogfile=$ERRORLOG    \
+        --pid=$PIDFILE
+}
+
+function stop_bunny1
+{
+    PID=`get_pid`
+    [ -f /proc/$PID ] && kill $PID
+    [ "$?" != "0" ] && kill -9 $PID
+    [ "$?" != "0" ] && exit_with_msg "FAILED"
+}
+
+initialize_bunny1
+
+case "$1" in
+    start)
+        echo -n "Starting bunny1..."
+        start_bunny1
+        echo "DONE"
+        ;;
+    stop)
+        echo -n "Stoping bunny1..."
+        stop_bunny1
+        echo "DONE"
+        ;;
+    restart)
+        echo -n "Stopping bunny1..."
+        stop_bunny1
+        echo "DONE"
+        echo -n "Starting bunny1..."
+        start_bunny1
+        echo "DONE"
+        ;;
+    pid)
+        PID=`get_pid`
+        if [ -d "/proc/$PID" ]; then
+            echo "$PID"
+        else
+            echo "No running bunny1"
+        fi
+esac

@@ -685,12 +685,54 @@ def main(b1, b1op=Bunny1OptionParser()):
                 b1.base_url = "%s://%s:%s/" % (protocol, host, port)
 
             if options.daemonize:
-                import daemonize
-                daemonize.daemonize(options.pidfile)
+                daemonize_me_baby(options.pidfile)
 
             # start the server
             b1.start(port=port, host=options.host, errorlogfile=options.errorlogfile, accesslogfile=options.accesslogfile)
 
+def daemonize_me_baby(pidfile):
+    """for daemonizing Attribution to: http://code.activestate.com/recipes/278731/"""
+    if (hasattr(os, "devnull")):
+        REDIRECT_TO = os.devnull
+    else:
+        REDIRECT_TO = "/dev/null"
+
+    try:
+        pid = os.fork()
+    except OSError, e:
+        raise Exception, "%s [%d]" % (e.strerror, e.errno)
+
+    if (pid == 0):  # first child
+        os.setsid()
+        try:
+            pid = os.fork()
+        except OSError, e:
+            raise Exception, "%s [%d]" % (s.strerror, e.errno)
+        if (pid == 0): # second child
+            os.umask(0)
+            #os.chdir("/")
+        else:
+            os._exit(0) # first child
+    else:
+        os._exit(0) # parent
+    import resource
+    maxfd = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+    if (maxfd == resource.RLIM_INFINITY):
+        maxfd = 1024
+    for fd in range(0, maxfd):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+    os.open(REDIRECT_TO, os.O_RDWR)
+    os.dup2(0,1)
+    os.dup2(0,2)
+    try:
+        open(pidfile, "w").write("%s\n" % (os.getpid()))
+    except OSError:
+        raise Exception, "Could not open pidfile '%s'" % (pidfile)
+    return(0)
 
 def main_cgi(b1):
     """for running bunny1 as a cgi"""
